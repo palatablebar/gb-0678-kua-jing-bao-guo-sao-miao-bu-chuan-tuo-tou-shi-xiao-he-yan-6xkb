@@ -1,5 +1,6 @@
 from app.reasons import reject
-NODES={"收件":"ACCEPT","ACCEPT":"ACCEPT","起运":"DEPART","DEPART":"DEPART","清关":"CUSTOMS","CUSTOMS":"CUSTOMS","妥投":"DELIVERED","DELIVERED":"DELIVERED"}
+from app.commitments.ledger import AMEND_NODE
+NODES={"收件":"ACCEPT","ACCEPT":"ACCEPT","起运":"DEPART","DEPART":"DEPART","清关":"CUSTOMS","CUSTOMS":"CUSTOMS","妥投":"DELIVERED","DELIVERED":"DELIVERED","改约":AMEND_NODE,AMEND_NODE:AMEND_NODE,"承诺变更":AMEND_NODE}
 DESTINATIONS={"JP":"Asia/Tokyo","US":"America/New_York","DE":"Europe/Berlin"}
 def evaluate(rows,context):
     good=[];bad=[]

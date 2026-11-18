@@ -13,6 +13,7 @@
 | M5 时效计算 | 查看并运行时效计算 | `/api/timeliness` | `app/modules/m5_timeliness/rules.py` | `tests/test_m5.py` |
 | M6 赔付对账 | 查看并运行赔付对账 | `/api/compensation` | `app/modules/m6_compensation/rules.py` | `tests/test_m6.py` |
 | M7 批次归档 | 查看并运行批次归档 | `/api/archives` | `app/modules/m7_archives/rules.py` | `tests/test_m7.py` |
+| M8 承诺账本 | 查看承诺版本链与扫描落钉 | `/api/commitments` | `app/modules/m8_commitments/rules.py`、`app/commitments/ledger.py` | `tests/test_m8.py` |
 
 ## 陷阱登记
 
@@ -32,10 +33,22 @@
 | TRAP-12 | DST自然日 | 固定24小时 | 按当地午夜切片 | `app/modules/m5_timeliness/rules.py` | `tests/test_m5.py::test_dst_actual_elapsed_hours` |
 | TRAP-13 | 迟到妥投补传 | 按上传时间赔付 | 发生时间重建 | `app/modules/m4_paths/rules.py` | `tests/test_m4.py::test_late_upload_event_time_decides` |
 | TRAP-23 | 假日端点 | 误算全天 | 当地日半开切段 | `app/modules/m5_timeliness/rules.py` | `tests/test_m5.py::test_holiday_full_day_stops` |
+| TRAP-30 | 改约生效时点 | 按补传上传时间改判 | 自客户确认时点(event_utc)生效，不追溯 | `app/commitments/ledger.py` | `tests/test_m8.py::test_new_commitment_effective_at_confirmation_not_upload` |
+| TRAP-31 | 新旧时限同传 | 扫描自带值覆盖承诺 | 版本链落钉，自带值仅留痕 | `app/commitments/ledger.py` | `tests/test_m8.py::test_scans_before_and_after_use_then_current_promise` |
+| TRAP-32 | 改约失败 | 新值覆盖旧承诺 | 只隔离留痕，保留上一可用版本 | `app/commitments/ledger.py` | `tests/test_m8.py::test_failed_amendment_keeps_previous_commitment_intact` |
+| TRAP-33 | 同刻互斥改约 | 后写覆盖 | 先到生效，冲突隔离并指回上一版本 | `app/commitments/ledger.py` | `tests/test_m8.py::test_same_moment_conflicting_amendments_keep_first` |
+| TRAP-34 | 重跑重复计赔 | 追加版本/重复赔付 | 纯函数+摘要run_id，追加式账本只增不改 | `app/store.py`、`app/commitments/ledger.py` | `tests/test_m8.py::test_rerun_same_input_is_idempotent_no_double_compensation` |
+| TRAP-35 | 妥投后改约 | 重开已锁结论 | 晚于妥投的改约隔离，结论不重开 | `app/commitments/ledger.py` | `tests/test_m8.py::test_amendment_after_delivery_cannot_reopen_locked_conclusion` |
 
 ## 对账规则
 
 输入原始逻辑行=最终采纳来源行+隔离来源行+重复行+空白行+分段表头。派生记录用_sources保存完整来源，因此分组不丢行。业务预期合计与上游申报合计之差等于逐行差异之和。结果按输入摘要、规则版本及参数产生唯一批次，事务写入；同源重跑只复用已有批次。
+
+## 承诺改约裁决（双时态）
+
+每票维护一条追加式承诺版本链。V0由最早有效收件扫描携带的`promised_hours`锁定；改约节点（中文`改约`/`承诺变更`，归一为`AMEND`）表示客户确认新承诺，新版本自确认事件的`event_utc`（客户确认时点）生效，区间半开`[effective_from, effective_to)`；补传的`received_utc`只统计上传延迟，不改变生效时点。扫描行自带的新旧时限只作留痕（`carried_promised_hours`），落钉结论（`effective_promised_hours`）由发生时刻命中的版本决定，生效前用旧承诺、生效后用新承诺。
+
+改约失败（note含“失败”）、确认早于收件、确认晚于妥投、同一确认时点互斥，四类不产生新版本：原始行隔离并记录`rejected_version`，上一可用版本原样保留、可恢复。时效按版本分段独立计时，各段超时相加，每票输出唯一`sla`与唯一`expected`。M8只做不变量校验与可追溯展示，不重新裁决；账本构建为纯函数，同输入重跑不新增版本、不重复计赔。
 
 ## 已知不覆盖
 

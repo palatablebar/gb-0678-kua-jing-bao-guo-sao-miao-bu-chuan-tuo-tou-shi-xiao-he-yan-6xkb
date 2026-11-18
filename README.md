@@ -20,10 +20,11 @@ docker compose exec -T app pytest -q
 - 5. 时效计算：`/timeliness`，`/api/timeliness`。
 - 6. 赔付对账：`/compensation`，`/api/compensation`。
 - 7. 批次归档：`/archives`，`/api/archives`。
+- 8. 承诺账本：`/commitments`，`/api/commitments`。
 
 ## 核心规则
 
-以事件发生时刻重建路径，补传不改变既有妥投时间；承诺时钟按目的地节假日停表。
+以事件发生时刻重建路径，补传不改变既有妥投时间；承诺时钟按目的地节假日停表。客户改约为双时态承诺：新承诺自客户确认时点（改约事件event_time）生效、不追溯，扫描按发生时刻落钉当时有效版本；改约失败保留上一可用结论，追加式版本链只增不改，同版本重跑不重复计赔，M8页面可追每次变更。
 
 ## 演示
 
@@ -34,7 +35,7 @@ docker compose exec -T app pytest -q
 
 ## 输入与输出
 
-输入列见 `docs/DATA-DICTIONARY.md`。项目包含dirty.csv、clean.csv、legacy.csv，统一走实际导入路径。上传限制4MB，拒绝不带时区的时间。业务键按字符串保留，Decimal参与计算，空值不会当零。
+输入列见 `docs/DATA-DICTIONARY.md`。项目包含dirty.csv、clean.csv、legacy.csv、amendments.csv，统一走实际导入路径。上传限制4MB，拒绝不带时区的时间。业务键按字符串保留，Decimal参与计算，空值不会当零。
 
 `POST /api/runs` 接收sample或csv；`GET /api/runs`返回历史批次；`POST /api/runs/<id>/review`需要version与decision；`GET /api/runs/<id>/archive`返回唯一证据导出。
 
